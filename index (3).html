@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SIGNAL // Market Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0d12; --panel: #10141b; --panel-2: #141922; --line: #1f2530;
+    --amber: #f0b90b; --up: #0ecb81; --down: #f6465d;
+    --text: #e8ebf0; --dim: #6b7686; --dim2: #93a0b3;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased;}
+  body{padding-bottom:40px;}
+
+  .ticker-wrap{background:#000; border-bottom:1px solid var(--line); overflow:hidden; white-space:nowrap; padding:8px 0; position:sticky; top:0; z-index:50;}
+  .ticker{display:inline-block; padding-left:100%; animation: scroll 38s linear infinite;}
+  .ticker-wrap:hover .ticker{animation-play-state:paused;}
+  @keyframes scroll{ 0%{transform:translateX(0);} 100%{transform:translateX(-100%);} }
+  .tick-item{font-family:var(--mono); font-size:12px; margin-right:36px;}
+  .tick-sym{color:var(--dim2); font-weight:600;}
+  .tick-up{color:var(--up);} .tick-down{color:var(--down);}
+
+  header{padding:22px 20px 16px; display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid var(--line);}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-dot{width:9px; height:9px; border-radius:50%; background:var(--amber); box-shadow:0 0 10px var(--amber); animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  .brand h1{font-family:var(--mono); font-size:16px; letter-spacing:0.12em; font-weight:700;}
+  .brand span{color:var(--amber);}
+  .subtitle{font-family:var(--mono); font-size:10.5px; color:var(--dim); margin-top:4px;}
+  .status{text-align:right; font-family:var(--mono); font-size:10.5px; color:var(--dim);}
+  #clock{color:var(--dim2); font-weight:600;}
+  .live-dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--up); margin-right:5px;}
+
+  .controls{display:flex; gap:10px; padding:14px 20px; flex-wrap:wrap; border-bottom:1px solid var(--line); background:var(--panel-2);}
+  .btn{font-family:var(--mono); font-size:11px; background:var(--panel); border:1px solid var(--line); color:var(--dim2); padding:9px 14px; border-radius:3px; cursor:pointer; transition:all .15s;}
+  .btn:hover{border-color:var(--amber); color:var(--amber);}
+  .btn.active{background:var(--amber); color:#000; border-color:var(--amber); font-weight:600;}
+
+  main{display:grid; grid-template-columns: 1.1fr 1fr; gap:1px; background:var(--line);}
+  @media (max-width: 880px){ main{grid-template-columns:1fr;} }
+  section{background:var(--bg); padding:20px;}
+  .section-title{font-family:var(--mono); font-size:11px; letter-spacing:0.14em; color:var(--dim); text-transform:uppercase; margin-bottom:14px; display:flex; align-items:center; gap:8px;}
+  .section-title .n{color:var(--amber);}
+
+  .signals{grid-column:1/-1; padding:20px; border-top:2px solid var(--amber);}
+  .signal-card{display:flex; gap:14px; padding:13px 14px; margin-bottom:8px; background:var(--panel); border-left:3px solid var(--amber); border-radius:0 4px 4px 0; animation: slideIn .4s ease;}
+  @keyframes slideIn{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+  .signal-card.impact-high{border-left-color:var(--down);}
+  .signal-badge{font-family:var(--mono); font-size:9.5px; font-weight:700; padding:3px 7px; border-radius:2px; background:rgba(240,185,11,0.12); color:var(--amber); white-space:nowrap; margin-top:2px;}
+  .impact-high .signal-badge{background:rgba(246,101,95,0.14); color:var(--down);}
+  .signal-body{flex:1; min-width:0;}
+  .signal-headline{font-size:13.5px; font-weight:600; line-height:1.4;}
+  .signal-meta{font-family:var(--mono); font-size:10.5px; color:var(--dim); margin-top:5px;}
+  .empty{font-family:var(--mono); font-size:11.5px; color:var(--dim); padding:20px 0; text-align:center;}
+
+  /* Claude panel */
+  .claude-panel{grid-column:1/-1; padding:20px; background:var(--panel-2); border-top:1px solid var(--line);}
+  .pulse-badge{display:inline-block; font-family:var(--mono); font-size:11px; font-weight:700; padding:4px 10px; border-radius:3px; letter-spacing:0.06em; margin-bottom:10px;}
+  .pulse-risk-on{background:rgba(14,203,129,0.15); color:var(--up);}
+  .pulse-risk-off{background:rgba(246,101,95,0.15); color:var(--down);}
+  .pulse-mixed, .pulse-quiet{background:rgba(240,185,11,0.15); color:var(--amber);}
+  .claude-summary{font-size:14px; line-height:1.6; margin-bottom:14px;}
+  .factor-list{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .factor-chip{font-family:var(--mono); font-size:11px; background:var(--panel); border:1px solid var(--line); padding:6px 10px; border-radius:20px; color:var(--dim2);}
+  .watch-row{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .watch-row:last-child{border:none;}
+  .watch-ticker{font-family:var(--mono); font-weight:700; color:var(--amber);}
+  .watch-why{color:var(--dim2); font-size:12px; text-align:right; max-width:60%;}
+  .disclaimer{font-family:var(--mono); font-size:10px; color:var(--dim); margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); line-height:1.6;}
+
+  .coin-row{display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line);}
+  .coin-row:last-child{border:none;}
+  .coin-left{display:flex; align-items:center; gap:10px;}
+  .coin-img{width:22px; height:22px; border-radius:50%;}
+  .coin-name{font-size:13px; font-weight:600;}
+  .coin-sym{font-family:var(--mono); font-size:10.5px; color:var(--dim); text-transform:uppercase;}
+  .coin-right{text-align:right;}
+  .coin-price{font-family:var(--mono); font-size:13px; font-weight:600;}
+  .coin-change{font-family:var(--mono); font-size:11.5px; font-weight:600; margin-top:2px;}
+  .up{color:var(--up);} .down{color:var(--down);}
+
+  .news-item{padding:11px 0; border-bottom:1px solid var(--line); cursor:pointer;}
+  .news-item:last-child{border:none;}
+  .news-item:hover .news-title{color:var(--amber);}
+  .news-title{font-size:13px; font-weight:500; line-height:1.45; transition:color .15s;}
+  .news-source{font-family:var(--mono); font-size:10px; color:var(--dim); margin-top:5px;}
+  .flag{color:var(--amber); font-weight:700;}
+
+  .x-account{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line);}
+  .x-account:last-child{border:none;}
+  .x-name{font-size:12.5px; font-weight:600;}
+  .x-handle{font-family:var(--mono); font-size:10.5px; color:var(--dim);}
+  .x-open{font-family:var(--mono); font-size:10px; color:var(--amber); text-decoration:none; border:1px solid var(--line); padding:5px 9px; border-radius:3px;}
+  .x-open:hover{border-color:var(--amber);}
+  .note{font-family:var(--mono); font-size:10.5px; color:var(--dim); line-height:1.6; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap"><div class="ticker" id="tickerTape"><span class="tick-item">Loading market data…</span></div></div>
+
+<header>
+  <div>
+    <div class="brand"><div class="brand-dot"></div><h1>SIGNAL<span>//</span>TERMINAL</h1></div>
+    <div class="subtitle">CRYPTO · MARKETS · MACRO NEWS — AI-ANALYZED</div>
+  </div>
+  <div class="status">
+    <div><span class="live-dot"></span><span id="clock">--:--:--</span></div>
+    <div id="lastUpdate">last scan: —</div>
+  </div>
+</header>
+
+<div class="controls">
+  <button class="btn active" id="btnNotify">🔔 ENABLE ALERTS</button>
+  <button class="btn" id="btnRefresh">↻ REFRESH NOW</button>
+  <button class="btn" id="btnSound">🔈 SOUND: OFF</button>
+</div>
+
+<section class="signals">
+  <div class="section-title">⚡ SIGNAL FEED <span class="n" id="sigCount">0</span> flagged</div>
+  <div id="signalList"><div class="empty">Scanning…</div></div>
+</section>
+
+<section class="claude-panel">
+  <div class="section-title">◆ CLAUDE MARKET READ</div>
+  <div id="claudeOutput"><div class="empty">Waiting for enough data to analyze…</div></div>
+</section>
+
+<main>
+  <section>
+    <div class="section-title">◆ CRYPTO MOVERS (24H)</div>
+    <div id="coinList"><div class="empty">Loading CoinGecko data…</div></div>
+  </section>
+
+  <section>
+    <div class="section-title">◆ MARKET & MACRO NEWS</div>
+    <div id="newsList"><div class="empty">Loading headlines…</div></div>
+  </section>
+</main>
+
+<section style="padding:20px;">
+  <div class="section-title">◆ WATCHED X ACCOUNTS (manual — no live API)</div>
+  <div id="xList"></div>
+  <div class="note">
+    X has no free live-read API, so this can't auto-pull tweets. Tap "open" to jump to that profile.
+    For real push alerts from X itself: build an X List with these accounts and turn on the list's bell icon —
+    that's the closest free live equivalent.
+  </div>
+</section>
+
+<script>
+// ====== CONFIG ======
+// If you deployed the Netlify function, leave this as a relative path — it resolves automatically.
+const ANALYZE_ENDPOINT = "/.netlify/functions/analyze";
+
+const KEYWORDS = ["trump","fed","rate cut","rate hike","tariff","sec","etf","inflation","cpi","ban","hack","halt","recession","shutdown","powell","interest rate","regulation","lawsuit","bitcoin reserve","stimulus","jobs report","earnings"];
+const HIGH_IMPACT = ["fed","rate cut","rate hike","trump","recession","shutdown","hack","ban","cpi"];
+
+const X_ACCOUNTS = [
+  {name:"Donald J. Trump", handle:"realDonaldTrump"},
+  {name:"Walter Bloomberg", handle:"DeItaone"},
+  {name:"Unusual Whales", handle:"unusual_whales"},
+  {name:"Zero Hedge", handle:"zerohedge"},
+  {name:"Whale Alert", handle:"whale_alert"},
+  {name:"Anthony Pompliano", handle:"APompliano"},
+  {name:"Wu Blockchain", handle:"WuBlockchain"},
+  {name:"CoinDesk", handle:"CoinDesk"},
+];
+
+let soundOn = false, notifyOn = false;
+let seenSignals = new Set();
+let latestHeadlines = [];
+let latestMovers = [];
+
+function renderX(){
+  document.getElementById('xList').innerHTML = X_ACCOUNTS.map(a => `
+    <div class="x-account">
+      <div><div class="x-name">${a.name}</div><div class="x-handle">@${a.handle}</div></div>
+      <a class="x-open" href="https://x.com/${a.handle}" target="_blank" rel="noopener">OPEN →</a>
+    </div>`).join('');
+}
+
+function tick(){ document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false}); }
+setInterval(tick, 1000); tick();
+
+function playBeep(){
+  if(!soundOn) return;
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; g.gain.value = 0.08;
+    o.start(); setTimeout(()=>{o.stop(); ctx.close();}, 180);
+  }catch(e){}
+}
+function fireNotification(title, body){
+  if(notifyOn && window.Notification && Notification.permission === 'granted'){
+    try{ new Notification(title, {body}); }catch(e){}
+  }
+  playBeep();
+}
+
+// ---- Crypto ----
+async function loadCrypto(){
+  try{
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=15&page=1&price_change_percentage=24h&sparkline=false');
+    const data = await res.json();
+    if(!Array.isArray(data)) throw new Error('bad payload');
+
+    document.getElementById('coinList').innerHTML = data.map(c => {
+      const chg = c.price_change_percentage_24h ?? 0;
+      const dir = chg >= 0 ? 'up' : 'down';
+      const arrow = chg >= 0 ? '▲' : '▼';
+      return `<div class="coin-row">
+        <div class="coin-left">
+          <img class="coin-img" src="${c.image}" alt="">
+          <div><div class="coin-name">${c.name}</div><div class="coin-sym">${c.symbol}</div></div>
+        </div>
+        <div class="coin-right">
+          <div class="coin-price">$${c.current_price.toLocaleString(undefined,{maximumFractionDigits: c.current_price < 1 ? 4 : 2})}</div>
+          <div class="coin-change ${dir}">${arrow} ${Math.abs(chg).toFixed(2)}%</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('tickerTape').innerHTML = data.map(c=>{
+      const chg = c.price_change_percentage_24h ?? 0;
+      const dir = chg>=0?'tick-up':'tick-down';
+      const arrow = chg>=0?'▲':'▼';
+      return `<span class="tick-item"><span class="tick-sym">${c.symbol.toUpperCase()}</span> $${c.current_price.toLocaleString(undefined,{maximumFractionDigits:2})} <span class="${dir}">${arrow}${Math.abs(chg).toFixed(1)}%</span></span>`;
+    }).join('');
+
+    latestMovers = data.map(c => ({symbol: c.symbol.toUpperCase(), change: +(c.price_change_percentage_24h ?? 0).toFixed(2)}));
+
+    // guaranteed signal: today's top gainer + top loser, always shown
+    const sorted = [...data].sort((a,b)=> (b.price_change_percentage_24h??0) - (a.price_change_percentage_24h??0));
+    const top = sorted[0], bottom = sorted[sorted.length-1];
+    addSignal({
+      headline: `Top mover today: ${top.name} +${(top.price_change_percentage_24h??0).toFixed(1)}% · Weakest: ${bottom.name} ${(bottom.price_change_percentage_24h??0).toFixed(1)}%`,
+      source: 'CoinGecko · Market Pulse', badge: 'DAILY PULSE', high:false, dedupeKey: 'pulse-'+new Date().toDateString()
+    });
+
+    data.forEach(c=>{
+      const chg = c.price_change_percentage_24h ?? 0;
+      if(Math.abs(chg) >= 5){
+        addSignal({
+          headline: `${c.name} (${c.symbol.toUpperCase()}) moved ${chg>=0?'+':''}${chg.toFixed(1)}% in 24h`,
+          source: 'CoinGecko', badge: 'PRICE MOVE', high: Math.abs(chg) >= 10,
+          dedupeKey: 'move-'+c.id+'-'+Math.round(chg)
+        });
+      }
+    });
+  }catch(e){
+    document.getElementById('coinList').innerHTML = '<div class="empty">Crypto data unavailable right now. Retrying next refresh.</div>';
+  }
+}
+
+// ---- News: resilient multi-proxy fetch ----
+async function fetchRSS(feedUrl){
+  // Try 1: allorigins raw passthrough + manual XML parse (most reliable, no key needed)
+  try{
+    const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feedUrl));
+    const xmlText = await r.text();
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    const items = [...doc.querySelectorAll('item')].slice(0, 10).map(it => ({
+      title: it.querySelector('title')?.textContent?.trim() || '',
+      link: it.querySelector('link')?.textContent?.trim() || feedUrl
+    })).filter(x => x.title);
+    if(items.length) return items;
+  }catch(e){ /* fall through */ }
+
+  // Try 2: rss2json
+  try{
+    const r = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(feedUrl));
+    const json = await r.json();
+    if(json.items?.length) return json.items.slice(0,10).map(it => ({title: it.title, link: it.link}));
+  }catch(e){ /* fall through */ }
+
+  return [];
+}
+
+async function loadNews(){
+  const feeds = [
+    {url:'https://www.coindesk.com/arc/outboundfeeds/rss/', source:'CoinDesk'},
+    {url:'https://feeds.content.dowjones.io/public/rss/mw_topstories', source:'MarketWatch'},
+    {url:'https://www.cnbc.com/id/10001147/device/rss/rss.html', source:'CNBC Markets'},
+    {url:'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', source:'WSJ Markets'},
+  ];
+
+  const results = await Promise.all(feeds.map(async f => {
+    const items = await fetchRSS(f.url);
+    return items.map(it => ({...it, source: f.source}));
+  }));
+  const allItems = results.flat();
+
+  if(allItems.length === 0){
+    document.getElementById('newsList').innerHTML = '<div class="empty">All news sources unreachable this cycle. Tap Refresh to retry.</div>';
+    return;
+  }
+
+  latestHeadlines = allItems.map(it => it.title);
+
+  document.getElementById('newsList').innerHTML = allItems.slice(0,25).map(it => {
+    const flagged = KEYWORDS.some(k => it.title.toLowerCase().includes(k));
+    return `<div class="news-item" onclick="window.open(${JSON.stringify(it.link)},'_blank')">
+      <div class="news-title">${flagged ? '<span class="flag">● </span>' : ''}${it.title}</div>
+      <div class="news-source">${it.source}</div>
+    </div>`;
+  }).join('');
+
+  allItems.forEach(it=>{
+    const low = it.title.toLowerCase();
+    const hit = KEYWORDS.find(k => low.includes(k));
+    if(hit){
+      addSignal({
+        headline: it.title, source: it.source, link: it.link,
+        badge: hit.toUpperCase(), high: HIGH_IMPACT.includes(hit),
+        dedupeKey: 'news-' + it.title.slice(0,50)
+      });
+    }
+  });
+
+  await runClaudeAnalysis();
+}
+
+function addSignal({headline, source, link, badge, high, dedupeKey}){
+  if(seenSignals.has(dedupeKey)) return;
+  seenSignals.add(dedupeKey);
+  const list = document.getElementById('signalList');
+  if(list.querySelector('.empty')) list.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'signal-card' + (high ? ' impact-high' : '');
+  card.innerHTML = `
+    <div class="signal-badge">${badge}</div>
+    <div class="signal-body">
+      <div class="signal-headline">${headline}</div>
+      <div class="signal-meta">${source} · ${new Date().toLocaleTimeString('en-US',{hour12:false})}${link ? ' · tap to open' : ''}</div>
+    </div>`;
+  if(link){ card.style.cursor='pointer'; card.onclick = () => window.open(link,'_blank'); }
+  list.prepend(card);
+  document.getElementById('sigCount').textContent = list.children.length;
+  fireNotification('⚡ Market Signal', headline);
+}
+
+// ---- Claude analysis panel ----
+async function runClaudeAnalysis(){
+  const out = document.getElementById('claudeOutput');
+  if(latestHeadlines.length === 0){
+    out.innerHTML = '<div class="empty">Waiting for headlines to analyze…</div>';
+    return;
+  }
+  out.innerHTML = '<div class="empty">Claude is reading today\u2019s signals…</div>';
+  try{
+    const res = await fetch(ANALYZE_ENDPOINT, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({headlines: latestHeadlines, movers: latestMovers})
+    });
+    if(!res.ok) throw new Error('function error ' + res.status);
+    const data = await res.json();
+    if(data.error) throw new Error(JSON.stringify(data.error));
+
+    const pulseClass = 'pulse-' + (data.pulse || 'mixed');
+    out.innerHTML = `
+      <span class="pulse-badge ${pulseClass}">${(data.pulse||'mixed').toUpperCase().replace('-',' ')}</span>
+      <div class="claude-summary">${data.summary || ''}</div>
+      <div class="factor-list">${(data.factors||[]).map(f=>`<span class="factor-chip">${f}</span>`).join('')}</div>
+      ${(data.watchlist||[]).map(w=>`<div class="watch-row"><span class="watch-ticker">${w.ticker}</span><span class="watch-why">${w.why}</span></div>`).join('')}
+      <div class="disclaimer">Informational only — not financial advice. Claude highlights what's driving headlines and price action; it does not issue buy/sell recommendations. Verify independently before acting.</div>
+    `;
+  }catch(e){
+    out.innerHTML = `<div class="empty">Claude analysis unavailable (function not deployed yet, or ANTHROPIC_API_KEY not set in Netlify). Everything else on this page still works.</div>`;
+  }
+}
+
+async function refreshAll(){
+  document.getElementById('lastUpdate').textContent = 'scanning…';
+  await Promise.all([loadCrypto(), loadNews()]);
+  document.getElementById('lastUpdate').textContent = 'last scan: ' + new Date().toLocaleTimeString('en-US',{hour12:false});
+}
+
+document.getElementById('btnRefresh').onclick = refreshAll;
+document.getElementById('btnSound').onclick = function(){
+  soundOn = !soundOn;
+  this.textContent = soundOn ? '🔊 SOUND: ON' : '🔈 SOUND: OFF';
+  this.classList.toggle('active', soundOn);
+};
+document.getElementById('btnNotify').onclick = async function(){
+  if(window.Notification){
+    const perm = await Notification.requestPermission();
+    notifyOn = perm === 'granted';
+    this.textContent = notifyOn ? '🔔 ALERTS: ON' : '🔕 BLOCKED — CHECK SETTINGS';
+    this.classList.toggle('active', notifyOn);
+  } else {
+    notifyOn = true;
+    this.textContent = '🔔 ALERTS: ON (in-app)';
+  }
+};
+
+renderX();
+refreshAll();
+setInterval(refreshAll, 90000);
+</script>
+
+</body>
+</html>
