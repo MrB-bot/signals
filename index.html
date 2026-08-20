@@ -358,7 +358,7 @@ async function runClaudeAnalysis(){
     out.innerHTML = '<div class="empty">Waiting for headlines to analyze…</div>';
     return;
   }
-  out.innerHTML = '<div class="empty">Claude is reading today\\'s signals…</div>';
+  out.innerHTML = '<div class="empty">Claude is reading today\u2019s signals…</div>';
   try{
     const res = await fetch(ANALYZE_ENDPOINT, {
       method: 'POST',
